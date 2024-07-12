@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Carregar os dados da planilha enviada
-file_path = 'valores_frete_semelhantes.xlsx'
+file_path = 'valores2.xlsx'
 df = pd.read_excel(file_path)
 
 # Verificar as colunas do DataFrame

@@ -113,6 +113,6 @@ df_frete = pd.DataFrame(dados_frete)
 print(df_frete)
 
 # Salvar os dados em um arquivo Excel
-output_path = 'valores_frete_semelhantes.xlsx'
+output_path = 'valores2.xlsx'
 df_frete.to_excel(output_path, index=False)
 print(f"Dados de frete salvos em {output_path}.")
