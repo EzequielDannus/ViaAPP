@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Carregar os dados da planilha enviada
-file_path = 'valores_frete.xlsx'
+file_path = 'valores.xlsx'
 df = pd.read_excel(file_path)
 
 # Verificar as colunas do DataFrame
@@ -11,7 +11,7 @@ print("Colunas do DataFrame:", df.columns)
 estados = df['Estado'].unique()
 
 # Criar um writer para salvar os dados em um novo arquivo Excel
-output_path = 'valores_frete_separado_por_estado.xlsx'
+output_path = 'valores_Prazo_Frete.xlsx'
 with pd.ExcelWriter(output_path) as writer:
     for estado in estados:
         df_estado = df[df['Estado'] == estado]
