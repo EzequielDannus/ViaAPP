@@ -1,0 +1,118 @@
+import pandas as pd
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+import datetime
+import re
+
+# Definir os códigos dos produtos
+codigos = [1500981518, 1500377758, 1503584314, 1516316156, 1500043408, 1526900438, 15179898, 1504504067, 1500043411, 15423258,
+           1501918320, 1502840900, 1522725727, 1500313103, 1514394634, 1511689905, 1519057499, 1531880970, 1507189952, 15425560,
+           15061676, 1500934943, 1545239011, 1544995466, 1526900220, 1523871060, 1533638045, 14230200, 1514144220,
+           1504502440, 1500026752, 1519232004, 1501918331, 1500952265, 1519057442, 1539721776, 1500202031, 1505477375,
+           1523019601]
+
+# Definir os CEPs por estado
+estados_cidades_ceps = {
+    "SP": "01002903",
+    "RJ": "20020022",
+    "BA":"40020060",
+    "PR": "80010020",
+    "DF": "70040252",
+    "MG": "30110000",
+    "PE": "50010040",
+    "GO": "74565920",
+    "TO": "77001074",
+    "PA": "66010095"
+}
+
+# Configurar o driver do Selenium
+def setup_driver():
+    options = Options()
+    options.add_argument("--ignore-certificate-errors")
+    options.add_argument("--no-sandbox")
+    options.add_argument('log-level=3')
+    driver = webdriver.Chrome(options=options)
+    return driver
+
+# Função para calcular dias úteis
+def calcular_dias_uteis(data_inicial, prazo_str):
+    match = re.search(r'(\d{2}) de (\w+)', prazo_str)
+    if not match:
+        print(f"Formato de data inválido: {prazo_str}")
+        return None
+    
+    dia = int(match.group(1))
+    mes = match.group(2).lower()
+    ano = data_inicial.year
+    
+    meses = {
+        'janeiro': 1, 'fevereiro': 2, 'março': 3, 'abril': 4,
+        'maio': 5, 'junho': 6, 'julho': 7, 'agosto': 8,
+        'setembro': 9, 'outubro': 10, 'novembro': 11, 'dezembro': 12
+    }
+    
+    if mes not in meses:
+        print(f"Mês inválido: {mes}")
+        return None
+    
+    prazo_data = datetime.datetime(ano, meses[mes], dia)
+    dias = pd.date_range(start=data_inicial, end=prazo_data)
+    dias_uteis = dias[~dias.weekday.isin([5, 6])]
+    return len(dias_uteis)
+
+# Função principal para coleta de dados
+def coletar_dados_frete():
+    driver = setup_driver()
+    wait = WebDriverWait(driver, 15)
+    dados_frete = []
+
+    for codigo in codigos:
+        url = f"https://www.casasbahia.com.br/cozinha-compacta-madesa-emilly-top-com-armario-e-balcao-rustic-preto/p/{codigo}"
+        driver.get(url)
+
+        for estado, cep in estados_cidades_ceps.items():
+            try:
+                cep_input = wait.until(EC.element_to_be_clickable((By.ID, 'frete')))
+                cep_input.clear()
+                cep_input.send_keys(cep)
+                cep_input.send_keys(Keys.RETURN)
+            except TimeoutException:
+                print(f"Erro: Não foi possível interagir com o campo de CEP para o código {codigo} e estado {estado}.")
+                continue
+
+            try:
+                freight_info = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="freight-price-value"]'))).text
+                prazo_info_element = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="cep-box"]/div[3]/div/div/div/div/div/span')))
+                prazo_info = prazo_info_element.text if prazo_info_element else ""
+                
+                data_inicial = datetime.datetime.today()
+                dias_uteis = calcular_dias_uteis(data_inicial, prazo_info) + 1 if prazo_info else ""
+                
+                dados_frete.append({
+                    'Código': codigo,
+                    'Estado': estado,
+                    'CEP': cep,
+                    'Frete': freight_info,
+                    'Dias Úteis': dias_uteis
+                })
+            except TimeoutException:
+                print(f"Erro: Não foi possível encontrar as informações de frete para o código {codigo} e estado {estado}.")
+            except Exception as e:
+                print(f"Erro ao processar o código {codigo} e estado {estado}: {e}")
+
+    driver.quit()
+    return dados_frete
+
+# Executar a coleta de dados e salvar em Excel
+dados_frete = coletar_dados_frete()
+df_frete = pd.DataFrame(dados_frete)
+print(df_frete)
+
+output_path = 'valores_frete.xlsx'
+df_frete.to_excel(output_path, index=False)
+print(f"Dados de frete salvos em {output_path}.")
